@@ -20,8 +20,8 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 # ------------------------------
 
 COLOR_DISTRIBUTION: Dict[str, float] = {
-    "C1": 0.20, "C2": 0.25, "C3": 0.12, "C4": 0.20, "C5": 0.03,
-    "C6": 0.02, "C7": 0.02, "C8": 0.02, "C9": 0.10, "C10": 0.02, "C11": 0.02, "C12": 0.01
+    "C1": 0.40, "C2": 0.25, "C3": 0.12, "C4": 0.08, "C5": 0.03,
+    "C6": 0.02, "C7": 0.02, "C8": 0.02, "C9": 0.02, "C10": 0.02, "C11": 0.01, "C12": 0.01
 }
 
 BUFFER_CONFIG: Dict[str, Dict[str, object]] = {
@@ -785,7 +785,6 @@ def generate_pdf_report() -> BytesIO:
         ['Color Changeovers', str(changeovers), 'Inefficiency indicator'],
         ['Buffer Overflows', str(buffer_overflows), 'Bottleneck detection'],
         ['O1 Penalties', str(penalties), 'Improper routing'],
-        ['Avg Jobs/Hour (est.)', f"{avg_jobs_per_hour:.2f}", 'Productivity measure'],
         ['Last Processed Color', system.main_conveyor_last_color if system.main_conveyor_last_color else 'N/A', 'Continuity analysis'],
         ['O2 Temp Buffer Queue', str(len(system.o2_temp_buffer)), 'Blocking status']
     ]
@@ -821,8 +820,6 @@ def generate_pdf_report() -> BytesIO:
     <b>Total vehicles processed:</b> {total_processed}<br/>
     <b>Total cycles executed:</b> {total_cycles}<br/>
     <b>Processing efficiency:</b> {(total_processed/total_cycles*100) if total_cycles > 0 else 0:.2f}%<br/>
-    <b>Estimated production rate:</b> {avg_jobs_per_hour:.2f} vehicles/hour<br/><br/>
-    <b>INSIGHT:</b> {'Production rate is optimal.' if avg_jobs_per_hour >= 50 else 'Production rate needs improvement. Consider optimizing buffer allocation.'}
     """
     elements.append(Paragraph(throughput_text, normal_style))
     elements.append(Spacer(1, 0.2*inch))
@@ -832,8 +829,6 @@ def generate_pdf_report() -> BytesIO:
     changeover_text = f"""
     <b>Total changeovers:</b> {changeovers}<br/>
     <b>Changeover rate:</b> {changeover_rate:.2f}%<br/>
-    <b>Average vehicles between changeovers:</b> {(total_processed/changeovers) if changeovers > 0 else total_processed:.2f}<br/><br/>
-    <b>INSIGHT:</b> {'Excellent color sequencing - minimal changeovers.' if changeover_rate < 30 else 'High changeover rate detected. Consider improving color batching strategy.' if changeover_rate < 50 else 'Critical: Very high changeover rate. Buffer sequencing algorithm needs optimization.'}
     """
     elements.append(Paragraph(changeover_text, normal_style))
     elements.append(Spacer(1, 0.2*inch))
@@ -872,8 +867,6 @@ def generate_pdf_report() -> BytesIO:
     elements.append(buffer_table)
     elements.append(Spacer(1, 0.15*inch))
     
-    buffer_insight = f"<b>INSIGHT:</b> {'Balanced buffer utilization across the system.' if 30 <= overall_utilization <= 70 else 'Warning: Buffer utilization is suboptimal. Review allocation strategy.' if overall_utilization < 30 else 'Critical: Buffers near capacity. Risk of bottlenecks.'}"
-    elements.append(Paragraph(buffer_insight, normal_style))
     elements.append(Spacer(1, 0.2*inch))
     
     # 4. O1 Penalty Analysis
@@ -883,7 +876,6 @@ def generate_pdf_report() -> BytesIO:
     <b>Total O1 penalties:</b> {penalties}<br/>
     <b>Penalty rate:</b> {penalty_rate:.2f}%<br/>
     <b>O1 vehicles routed to O2 buffers:</b> {penalties}<br/><br/>
-    <b>INSIGHT:</b> {'No routing issues detected.' if penalties == 0 else 'Minor routing inefficiency detected.' if penalties < total_cycles * 0.1 else 'Significant routing issues. O1 buffers frequently full, causing O2 buffer usage.'}
     """
     elements.append(Paragraph(penalty_text, normal_style))
     elements.append(Spacer(1, 0.2*inch))
@@ -894,7 +886,6 @@ def generate_pdf_report() -> BytesIO:
     <b>Buffer overflows detected:</b> {buffer_overflows}<br/>
     <b>O2 temporary buffer queue:</b> {len(system.o2_temp_buffer)} vehicles waiting<br/>
     <b>O2 blocked status:</b> {'ACTIVE' if system.o2Stopped else 'NORMAL'}<br/><br/>
-    <b>INSIGHT:</b> {'No blocking issues. System operating smoothly.' if buffer_overflows == 0 and len(system.o2_temp_buffer) == 0 else 'System experiencing blocking. Consider increasing buffer capacity or optimizing placement logic.'}
     """
     elements.append(Paragraph(blocking_text, normal_style))
     elements.append(Spacer(1, 0.3*inch))
@@ -1392,29 +1383,7 @@ def main():
                 st.metric("Improvement", f"{improvement:.1f}%")
             st.markdown('</div>', unsafe_allow_html=True)
             
-            # 2. Penalty Analysis - Line Graph Only
-            st.markdown('<div class="graph-container">', unsafe_allow_html=True)
-            st.subheader("Penalty Analysis")
             
-            # Line chart for cumulative penalties over time
-            penalty_chart_data = pd.DataFrame({
-                'Cycle': penalty_df['cycle'],
-                'Optimized Penalties': penalty_df['optimized_penalties'],
-                'Round Robin Penalties': penalty_df['round_robin_penalties']
-            })
-            st.line_chart(penalty_chart_data.set_index('Cycle'), use_container_width=True)
-            
-            # Current penalty comparison
-            col_pen1, col_pen2, col_pen3 = st.columns(3)
-            with col_pen1:
-                st.metric("Optimized Penalties", st.session_state.system.penaltyCount)
-            with col_pen2:
-                st.metric("Round Robin Penalties", st.session_state.round_robin_system.penaltyCount)
-            with col_pen3:
-                penalty_reduction = ((st.session_state.round_robin_system.penaltyCount - st.session_state.system.penaltyCount) / st.session_state.round_robin_system.penaltyCount * 100) if st.session_state.round_robin_system.penaltyCount > 0 else 100
-                st.metric("Penalty Reduction", f"{penalty_reduction:.1f}%")
-            st.markdown('</div>', unsafe_allow_html=True)
-    
     # Auto-run simulation
     if st.session_state.running:
         time.sleep(1 / speed)
